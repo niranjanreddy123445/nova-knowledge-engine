@@ -1,0 +1,310 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA — Personal Knowledge Engine</title>
+<style>
+:root {
+  --bg:#080d1b; --panel:#111a2d; --border:#26334d;
+  --text:#f3f6ff; --muted:#9baac4; --accent:#8b7cff;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+}
+header {
+  padding:20px; border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+  gap:12px; flex-wrap:wrap;
+}
+.brand { font-size:25px; font-weight:800; letter-spacing:2px; }
+.brand span { color:var(--accent); }
+header p { color:var(--muted); margin:5px 0 0; font-size:13px; }
+main { max-width:1000px; margin:auto; padding:22px 16px 50px; }
+.welcome { margin-bottom:22px; }
+h1 { font-size:28px; margin:0 0 8px; }
+h2 { font-size:19px; margin:0 0 16px; }
+.muted { color:var(--muted); line-height:1.6; }
+.stats {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px; margin:22px 0;
+}
+.card,.panel {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:15px; padding:17px;
+}
+.stat-number { font-size:27px; font-weight:800; margin-top:10px; }
+.stat-label { font-size:13px; color:var(--muted); }
+.layout { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+label { display:block; font-size:13px; color:var(--muted); margin:12px 0 7px; }
+input,textarea {
+  width:100%; padding:12px; color:var(--text);
+  background:#080f20; border:1px solid var(--border);
+  border-radius:9px; font:inherit; outline:none;
+}
+input:focus,textarea:focus { border-color:var(--accent); }
+textarea { min-height:130px; resize:vertical; }
+button {
+  border:0; padding:11px 14px; border-radius:9px;
+  cursor:pointer; font-weight:700; margin-top:12px;
+}
+.primary { background:var(--accent); color:white; }
+.secondary { background:#26334d; color:white; }
+.danger { background:#492431; color:#ffb9c6; }
+button:focus-visible { outline:2px solid white; }
+.full { width:100%; }
+.search { margin:20px 0 14px; }
+.notes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.note { overflow-wrap:anywhere; }
+.note h3 { margin:0 0 10px; font-size:17px; }
+.note p { color:#c3cee1; line-height:1.6; white-space:pre-wrap; }
+.note small { color:var(--muted); }
+.note-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.note-actions button { margin-top:5px; }
+.empty { text-align:center; padding:28px 12px; color:var(--muted); }
+footer { text-align:center; color:var(--muted); font-size:12px; padding:28px 10px; }
+@media(max-width:650px) {
+  .layout { grid-template-columns:1fr; }
+  .notes { grid-template-columns:1fr; }
+  .stats { gap:8px; }
+  .card { padding:12px; }
+  .stat-number { font-size:23px; }
+  h1 { font-size:24px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="brand">N<span>O</span>VA</div>
+    <p>PERSONAL KNOWLEDGE ENGINE</p>
+  </div>
+  <span class="muted">Your knowledge, organised.</span>
+</header>
+
+<main>
+  <section class="welcome">
+    <h1>Welcome to NOVA 👋</h1>
+    <p class="muted">Capture ideas, organise your knowledge, and find what you need.</p>
+  </section>
+
+  <section class="stats">
+    <div class="card">
+      <div class="stat-label">TOTAL NOTES</div>
+      <div class="stat-number" id="totalNotes">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">WORDS SAVED</div>
+      <div class="stat-number" id="totalWords">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">SEARCH STATUS</div>
+      <div class="stat-number" style="font-size:20px">Ready</div>
+    </div>
+  </section>
+
+  <section class="layout">
+    <div class="panel">
+      <h2 id="formHeading">✍️ Create a note</h2>
+      <form id="noteForm">
+        <label for="noteTitle">Note title</label>
+        <input id="noteTitle" maxlength="120" placeholder="e.g. Physics — Motion" required>
+        <label for="noteContent">Your notes</label>
+        <textarea id="noteContent" maxlength="20000" placeholder="Write or paste your knowledge here..." required></textarea>
+        <button class="primary full" id="saveButton" type="submit">Save note</button>
+        <button class="secondary full" id="cancelButton" type="button" hidden>Cancel editing</button>
+      </form>
+      <p class="muted" style="font-size:12px">Notes are saved in this browser on this device.</p>
+    </div>
+
+    <div class="panel">
+      <h2>🔎 Find your knowledge</h2>
+      <p class="muted">Search across the titles and contents of your saved notes.</p>
+      <label for="searchInput">Search notes</label>
+      <input id="searchInput" class="search" placeholder="Type a keyword...">
+      <p id="searchInfo" class="muted" aria-live="polite">Your saved notes will appear below.</p>
+      <button class="secondary" id="exportButton" type="button">Download backup</button>
+    </div>
+  </section>
+
+  <section style="margin-top:26px">
+    <h2>📚 Your Knowledge Library</h2>
+    <div id="notesList" class="notes"></div>
+  </section>
+</main>
+
+<footer>NOVA Personal Knowledge Engine · First prototype</footer>
+
+<script>
+(() => {
+  const STORAGE_KEY = "nova_knowledge_notes_v1";
+  const $ = id => document.getElementById(id);
+  let notes = [];
+  let editingId = null;
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    if (Array.isArray(parsed)) notes = parsed.filter(n =>
+      n && typeof n.id === "string" &&
+      typeof n.title === "string" &&
+      typeof n.content === "string"
+    );
+  } catch (error) {
+    console.warn("Could not load NOVA notes:", error);
+  }
+
+  function saveStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+      return true;
+    } catch (error) {
+      alert("Could not save notes. Check your browser storage or available space.");
+      return false;
+    }
+  }
+
+  function makeElement(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  function render() {
+    $("totalNotes").textContent = notes.length;
+    $("totalWords").textContent = notes.reduce((sum, n) =>
+      sum + (n.title + " " + n.content).trim().split(/\s+/).filter(Boolean).length, 0
+    );
+
+    const query = $("searchInput").value.trim().toLowerCase();
+    const filtered = notes.filter(n =>
+      (n.title + " " + n.content).toLowerCase().includes(query)
+    );
+
+    $("notesList").replaceChildren();
+    $("searchInfo").textContent = query
+      ? `${filtered.length} matching note(s)`
+      : `${notes.length} note(s) saved`;
+
+    if (!filtered.length) {
+      $("notesList").append(
+        makeElement("div", "empty", query
+          ? "No matching notes. Try another keyword."
+          : "Your library is empty. Create your first note above.")
+      );
+      return;
+    }
+
+    filtered.slice().reverse().forEach(note => {
+      const card = makeElement("article", "card note");
+      card.append(makeElement("h3", "", note.title));
+      card.append(makeElement("p", "", note.content));
+      card.append(makeElement("small", "", "Updated " + new Date(note.updatedAt).toLocaleString()));
+
+      const actions = makeElement("div", "note-actions");
+      const edit = makeElement("button", "secondary", "Edit");
+      edit.type = "button";
+      edit.addEventListener("click", () => startEdit(note.id));
+
+      const del = makeElement("button", "danger", "Delete");
+      del.type = "button";
+      del.addEventListener("click", () => deleteNote(note.id));
+
+      actions.append(edit, del);
+      card.append(actions);
+      $("notesList").append(card);
+    });
+  }
+
+  function resetForm() {
+    editingId = null;
+    $("noteForm").reset();
+    $("formHeading").textContent = "✍️ Create a note";
+    $("saveButton").textContent = "Save note";
+    $("cancelButton").hidden = true;
+  }
+
+  function startEdit(id) {
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    editingId = id;
+    $("noteTitle").value = note.title;
+    $("noteContent").value = note.content;
+    $("formHeading").textContent = "✏️ Edit your note";
+    $("saveButton").textContent = "Update note";
+    $("cancelButton").hidden = false;
+    $("noteTitle").focus();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function deleteNote(id) {
+    if (!confirm("Delete this note permanently from this browser?")) return;
+    const previous = notes;
+    notes = notes.filter(n => n.id !== id);
+    if (!saveStorage()) {
+      notes = previous;
+      return;
+    }
+    if (editingId === id) resetForm();
+    render();
+  }
+
+  $("noteForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const title = $("noteTitle").value.trim();
+    const content = $("noteContent").value.trim();
+    if (!title || !content) return;
+
+    const previous = notes;
+    const now = new Date().toISOString();
+
+    if (editingId) {
+      notes = notes.map(n => n.id === editingId
+        ? { ...n, title, content, updatedAt: now }
+        : n
+      );
+    } else {
+      notes.push({
+        id: (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : String(Date.now()) + Math.random().toString(36).slice(2),
+        title, content, createdAt: now, updatedAt: now
+      });
+    }
+
+    if (!saveStorage()) {
+      notes = previous;
+      return;
+    }
+
+    resetForm();
+    render();
+  });
+
+  $("cancelButton").addEventListener("click", resetForm);
+  $("searchInput").addEventListener("input", render);
+
+  $("exportButton").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(notes, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "nova-notes-backup.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  render();
+})();
+</script>
+</body>
+  </html>
+  
