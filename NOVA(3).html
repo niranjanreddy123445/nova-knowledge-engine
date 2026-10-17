@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA — Personal Knowledge Engine</title>
+<style>
+:root{--bg:#080d1b;--panel:#111a2d;--border:#26334d;--text:#f3f6ff;--muted:#9baac4;--accent:#8b7cff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+header{padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-size:25px;font-weight:800;letter-spacing:2px}.brand span{color:var(--accent)}header p{color:var(--muted);margin:5px 0 0;font-size:13px}
+main{max-width:1100px;margin:auto;padding:22px 16px 50px}.welcome{margin-bottom:22px}h1{font-size:28px;margin:0 0 8px}h2{font-size:19px;margin:0 0 16px}.muted{color:var(--muted);line-height:1.6}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:22px 0}.card,.panel{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:17px}
+.stat-number{font-size:27px;font-weight:800;margin-top:10px}.stat-label{font-size:13px;color:var(--muted)}.layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 7px}input,textarea,select{width:100%;padding:12px;color:var(--text);background:#080f20;border:1px solid var(--border);border-radius:9px;font:inherit;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}textarea{min-height:130px;resize:vertical}input[type=checkbox]{width:auto;accent-color:var(--accent)}.checkline{display:flex;align-items:center;gap:9px;margin-top:14px;color:var(--muted);font-size:14px}
+button{border:0;padding:11px 14px;border-radius:9px;cursor:pointer;font-weight:700;margin-top:12px}.primary{background:var(--accent);color:white}.secondary{background:#26334d;color:white}.danger{background:#492431;color:#ffb9c6}button:focus-visible{outline:2px solid white}.full{width:100%}.search{margin:10px 0 14px}.notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.note{overflow-wrap:anywhere;min-width:0}.note h3{margin:0 0 10px;font-size:17px}.note p{color:#c3cee1;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}.note small{color:var(--muted)}
+.note-actions{display:flex;gap:8px;flex-wrap:wrap}.note-actions button{margin-top:5px}.empty{text-align:center;padding:28px 12px;color:var(--muted);grid-column:1/-1}.pill{display:inline-block;border:1px solid var(--border);border-radius:99px;padding:4px 8px;font-size:11px;color:#d9d5ff;margin:0 5px 7px 0}.favorite{color:#ffd479;font-weight:700}.filters{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;align-items:end}.filters label{margin-top:4px}.notice{font-size:12px;color:var(--muted);line-height:1.5}.status{min-height:20px;font-size:13px;color:#d9d5ff;line-height:1.5}footer{text-align:center;color:var(--muted);font-size:12px;padding:28px 10px}
+@media(max-width:700px){.layout{grid-template-columns:1fr}.notes{grid-template-columns:1fr}.stats{gap:8px}.card{padding:12px}.stat-number{font-size:23px}h1{font-size:24px}.filters{grid-template-columns:1fr}}
+</style>
+<!-- PDF.js is loaded from a CDN so PDF text extraction needs an internet connection. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+<header><div><div class="brand">N<span>O</span>VA</div><p>PERSONAL KNOWLEDGE ENGINE</p></div><span class="muted">Your knowledge, organised.</span></header>
+<main>
+<section class="welcome"><h1>Welcome to NOVA 👋</h1><p class="muted">Capture ideas, organise your knowledge, and find what you need.</p></section>
+<section class="stats">
+  <div class="card"><div class="stat-label">TOTAL NOTES</div><div class="stat-number" id="totalNotes">0</div></div>
+  <div class="card"><div class="stat-label">WORDS SAVED</div><div class="stat-number" id="totalWords">0</div></div>
+  <div class="card"><div class="stat-label">FAVOURITES</div><div class="stat-number" id="totalFavorites">0</div></div>
+</section>
+<section class="layout">
+  <div class="panel">
+    <h2 id="formHeading">✍️ Create a note</h2>
+    <form id="noteForm">
+      <label for="noteTitle">Note title</label><input id="noteTitle" maxlength="120" placeholder="e.g. Physics — Motion" required>
+      <label for="noteContent">Your notes</label><textarea id="noteContent" maxlength="100000" placeholder="Write or paste your knowledge here..." required></textarea>
+      <label for="noteFolder">Folder</label><input id="noteFolder" maxlength="80" list="folderOptions" placeholder="e.g. Physics, Ideas, School"><datalist id="folderOptions"></datalist>
+      <label for="noteTags">Tags (separate with commas)</label><input id="noteTags" maxlength="300" placeholder="e.g. exam, formulas, important">
+      <label class="checkline"><input id="noteFavorite" type="checkbox"> Mark as favourite ⭐</label>
+      <button class="primary full" id="saveButton" type="submit">Save note</button>
+      <button class="secondary full" id="cancelButton" type="button" hidden>Cancel editing</button>
+    </form>
+    <p class="notice">Notes are stored in this browser on this device. Folders and tags are labels to help organise your notes.</p>
+  </div>
+  <div class="panel">
+    <h2>🔎 Find your knowledge</h2><p class="muted">Search titles, content, folders and tags. Filter by folder or show favourites only.</p>
+    <label for="searchInput">Search notes</label><input id="searchInput" class="search" placeholder="Type a keyword...">
+    <div class="filters">
+      <div><label for="folderFilter">Folder</label><select id="folderFilter"><option value="">All folders</option></select></div>
+      <div><label for="tagFilter">Tag</label><select id="tagFilter"><option value="">All tags</option></select></div>
+      <div><label for="favoritesOnly">Favourites</label><select id="favoritesOnly"><option value="no">All notes</option><option value="yes">Favourites only</option></select></div>
+    </div>
+    <p id="searchInfo" class="muted" aria-live="polite">Your saved notes will appear below.</p>
+    <button class="secondary" id="exportButton" type="button">Download backup</button>
+    <button class="secondary" id="importBackupButton" type="button">Restore backup</button><input id="backupFile" type="file" accept="application/json,.json" hidden>
+    <hr style="border:0;border-top:1px solid var(--border);margin:22px 0">
+    <h2>📄 Import a PDF</h2><p class="muted">Extract selectable text from a PDF and save it as a searchable note.</p>
+    <label for="pdfFile">Choose PDF file</label><input id="pdfFile" type="file" accept="application/pdf,.pdf">
+    <label for="pdfFolder">Save in folder</label><input id="pdfFolder" maxlength="80" list="folderOptions" placeholder="e.g. Study PDFs">
+    <label for="pdfTags">Tags (comma-separated)</label><input id="pdfTags" maxlength="300" placeholder="e.g. textbook, chapter 1">
+    <button class="primary full" id="importPdfButton" type="button">Extract PDF text and save</button>
+    <p class="status" id="pdfStatus" aria-live="polite"></p>
+    <p class="notice">PDF extraction requires internet access to load PDF.js. Scanned/image-only PDFs may produce little or no text because OCR is not included. Very large PDFs may exceed browser storage limits.</p>
+  </div>
+</section>
+<section style="margin-top:26px"><h2>📚 Your Knowledge Library</h2><div id="notesList" class="notes"></div></section>
+<section class="panel" style="margin-top:26px" id="smartBrainPanel">
+  <h2>🧠 NOVA Smart Brain</h2>
+  <p class="muted">Ask about your saved notes or create a quick summary. This local prototype searches your own library; it does not use a real AI model yet.</p>
+  <label for="brainQuestion">Ask a question about your knowledge</label>
+  <textarea id="brainQuestion" placeholder="e.g. What did I save about motion?" style="min-height:90px"></textarea>
+  <button class="primary" id="askBrainButton" type="button">Search my knowledge</button>
+  <button class="secondary" id="clearBrainButton" type="button">Clear</button>
+  <div id="brainAnswer" class="card" style="margin-top:14px;white-space:pre-wrap;line-height:1.6" aria-live="polite">Your answer will appear here, based on matching notes in your library.</div>
+  <label for="summaryNoteSelect">Summarise a saved note</label>
+  <select id="summaryNoteSelect"><option value="">Choose a note</option></select>
+  <button class="primary" id="summarizeButton" type="button">Create quick summary</button>
+  <div id="summaryAnswer" class="card" style="margin-top:14px;white-space:pre-wrap;line-height:1.6" aria-live="polite">Choose a note to create a short extractive summary.</div>
+  <p class="notice">Privacy: this local search and summary run in your browser. They are not generated by a large language model, may miss meaning, and do not send your notes to an AI service. A future real-AI version needs a secure backend/API connection; never place a private API key in public HTML.</p>
+</section>
+</main><footer>NOVA Personal Knowledge Engine · Local prototype</footer>
+<script>
+(() => {
+  const STORAGE_KEY = "nova_knowledge_notes_v1";
+  const $ = id => document.getElementById(id);
+  let notes = [], editingId = null;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY), parsed = stored ? JSON.parse(stored) : [];
+    if (Array.isArray(parsed)) notes = parsed.filter(n => n && typeof n.id === "string" && typeof n.title === "string" && typeof n.content === "string").map(n => ({
+      ...n, folder: typeof n.folder === "string" ? n.folder : "Unfiled",
+      tags: Array.isArray(n.tags) ? n.tags.filter(t => typeof t === "string") : [],
+      favorite: Boolean(n.favorite), createdAt: n.createdAt || n.updatedAt || new Date().toISOString(), updatedAt: n.updatedAt || n.createdAt || new Date().toISOString()
+    }));
+  } catch (error) { console.warn("Could not load NOVA notes:", error); }
+
+  function saveStorage() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(notes)); return true; }
+    catch (error) { alert("Could not save NOVA data. Browser storage may be full. Try importing a smaller PDF or deleting large notes, then download a backup."); return false; }
+  }
+  function makeElement(tag, className, text) { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; }
+  function normalizeTags(value) { return [...new Set(String(value || "").split(",").map(t => t.trim()).filter(Boolean))].slice(0, 30); }
+  function uniqueSorted(values) { return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b)); }
+  function updateSelect(select, values, firstLabel) {
+    const old = select.value; select.replaceChildren(new Option(firstLabel, ""));
+    uniqueSorted(values).forEach(v => select.add(new Option(v, v)));
+    if ([...select.options].some(o => o.value === old)) select.value = old;
+  }
+  function updateFolderControls() {
+    const folders = uniqueSorted(notes.map(n => n.folder || "Unfiled"));
+    const tags = uniqueSorted(notes.flatMap(n => Array.isArray(n.tags) ? n.tags : []));
+    updateSelect($("folderFilter"), folders, "All folders");
+    updateSelect($("tagFilter"), tags, "All tags");
+    const datalist = $("folderOptions"); datalist.replaceChildren();
+    folders.forEach(f => datalist.append(new Option(f, f)));
+  }
+  function render() {
+    $("totalNotes").textContent = notes.length;
+    $("totalWords").textContent = notes.reduce((sum,n) => sum + (n.title + " " + n.content).trim().split(/\s+/).filter(Boolean).length, 0).toLocaleString();
+    $("totalFavorites").textContent = notes.filter(n => n.favorite).length;
+    updateFolderControls();
+    updateBrainNoteOptions();
+    const query = $("searchInput").value.trim().toLowerCase(), folder = $("folderFilter").value, tag = $("tagFilter").value, favoritesOnly = $("favoritesOnly").value === "yes";
+    const filtered = notes.filter(n => {
+      const haystack = [n.title,n.content,n.folder,...(n.tags || [])].join(" ").toLowerCase();
+      return haystack.includes(query) && (!folder || (n.folder || "Unfiled") === folder) && (!tag || (n.tags || []).includes(tag)) && (!favoritesOnly || n.favorite);
+    });
+    const list = $("notesList"); list.replaceChildren();
+    $("searchInfo").textContent = `${filtered.length} of ${notes.length} note(s) shown`;
+    if (!filtered.length) { list.append(makeElement("div","empty",notes.length ? "No notes match these search or filter settings." : "Your library is empty. Create your first note or import a PDF above.")); return; }
+    filtered.slice().reverse().forEach(note => {
+      const card = makeElement("article","card note");
+      const titleRow = makeElement("div"); titleRow.style.display = "flex"; titleRow.style.justifyContent = "space-between"; titleRow.style.gap = "10px";
+      titleRow.append(makeElement("h3","",note.title));
+      if (note.favorite) titleRow.append(makeElement("span","favorite","★"));
+      card.append(titleRow);
+      const meta = makeElement("div"); meta.append(makeElement("span","pill","📁 " + (note.folder || "Unfiled")));
+      (note.tags || []).forEach(t => meta.append(makeElement("span","pill","#" + t)));
+      card.append(meta);
+      const preview = note.content.length > 1400 ? note.content.slice(0,1400) + "\n… [preview shortened]" : note.content;
+      card.append(makeElement("p","",preview));
+      card.append(makeElement("small","","Updated " + new Date(note.updatedAt || Date.now()).toLocaleString()));
+      const actions = makeElement("div","note-actions");
+      const favorite = makeElement("button", "secondary", note.favorite ? "★ Unfavourite" : "☆ Favourite"); favorite.type = "button"; favorite.addEventListener("click", () => toggleFavorite(note.id));
+      const edit = makeElement("button","secondary","Edit"); edit.type = "button"; edit.addEventListener("click",() => startEdit(note.id));
+      const del = makeElement("button","danger","Delete"); del.type = "button"; del.addEventListener("click",() => deleteNote(note.id));
+      actions.append(favorite,edit,del); card.append(actions); list.append(card);
+    });
+  }
+  function updateBrainNoteOptions() {
+    const select = $("summaryNoteSelect"); if (!select) return;
+    const old = select.value; select.replaceChildren(new Option("Choose a note", ""));
+    notes.slice().sort((a,b) => a.title.localeCompare(b.title)).forEach(n => select.add(new Option(n.title, n.id)));
+    if (notes.some(n => n.id === old)) select.value = old;
+  }
+  function words(text) { return (String(text || "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).filter(w => w.length > 1); }
+  function getMatchingNotes(question) {
+    const terms = [...new Set(words(question))];
+    if (!terms.length) return [];
+    return notes.map(note => {
+      const title = words(note.title), content = words(note.content), folder = words(note.folder), tags = words((note.tags || []).join(" "));
+      let score = 0;
+      terms.forEach(term => {
+        if (title.includes(term)) score += 5;
+        if (folder.includes(term)) score += 3;
+        if (tags.includes(term)) score += 4;
+        score += content.filter(w => w === term).length;
+      });
+      return {note, score};
+    }).filter(x => x.score > 0).sort((a,b) => b.score-a.score).slice(0,5);
+  }
+  function makeQuickSummary(content) {
+    const cleaned = String(content || "").replace(/--- Page \d+ ---/g, " ").replace(/\s+/g," ").trim();
+    if (!cleaned) return "This note has no text to summarise.";
+    const sentences = cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleaned];
+    const chosen = sentences.map(s => s.trim()).filter(Boolean).slice(0,5);
+    let result = chosen.join(" ");
+    if (result.length > 1200) result = result.slice(0,1197) + "…";
+    return "Quick extractive summary (first sentences, not AI-generated):\n\n" + result;
+  }
+  function askBrain() {
+    const question = $("brainQuestion").value.trim(), output = $("brainAnswer");
+    if (!question) { output.textContent = "Type a question first, such as: What did I save about physics?"; return; }
+    const matches = getMatchingNotes(question);
+    if (!matches.length) { output.textContent = "I couldn't find a clear keyword match in your saved notes. Try different keywords, or create a note about this topic first. This prototype searches words; it does not understand meaning like a real AI model."; return; }
+    output.textContent = "I found these potentially relevant notes. These are keyword matches, not a generated AI answer:\n\n" + matches.map((item,i) => `${i+1}. ${item.note.title}\nFolder: ${item.note.folder || "Unfiled"}${item.note.tags && item.note.tags.length ? "\nTags: " + item.note.tags.join(", ") : ""}\nExcerpt: ${item.note.content.slice(0,700)}${item.note.content.length>700 ? "…" : ""}`).join("\n\n────────────────\n\n");
+  }
+  function resetForm() { editingId = null; $("noteForm").reset(); $("formHeading").textContent = "✍️ Create a note"; $("saveButton").textContent = "Save note"; $("cancelButton").hidden = true; }
+  function startEdit(id) {
+    const note = notes.find(n => n.id === id); if (!note) return; editingId = id;
+    $("noteTitle").value = note.title; $("noteContent").value = note.content; $("noteFolder").value = note.folder || "Unfiled";
+    $("noteTags").value = (note.tags || []).join(", "); $("noteFavorite").checked = Boolean(note.favorite);
+    $("formHeading").textContent = "✏️ Edit your note"; $("saveButton").textContent = "Update note"; $("cancelButton").hidden = false;
+    $("noteTitle").focus(); window.scrollTo({top:0,behavior:"smooth"});
+  }
+  function deleteNote(id) {
+    if (!confirm("Delete this note permanently from this browser?")) return;
+    const previous = notes; notes = notes.filter(n => n.id !== id);
+    if (!saveStorage()) { notes = previous; return; } if (editingId === id) resetForm(); render();
+  }
+  function toggleFavorite(id) {
+    const previous = notes; notes = notes.map(n => n.id === id ? {...n,favorite:!n.favorite,updatedAt:new Date().toISOString()} : n);
+    if (!saveStorage()) notes = previous; render();
+  }
+  function makeId() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2); }
+  function addNote({title,content,folder,tags,favorite=false}) {
+    const now = new Date().toISOString(); const previous = notes;
+    notes = [...notes,{id:makeId(),title,content,folder:(folder || "").trim() || "Unfiled",tags:normalizeTags(tags),favorite:Boolean(favorite),createdAt:now,updatedAt:now}];
+    if (!saveStorage()) { notes = previous; return false; } render(); return true;
+  }
+  $("noteForm").addEventListener("submit",event => {
+    event.preventDefault(); const title = $("noteTitle").value.trim(), content = $("noteContent").value.trim(); if (!title || !content) return;
+    const folder = $("noteFolder").value.trim() || "Unfiled", tags = normalizeTags($("noteTags").value), favorite = $("noteFavorite").checked;
+    const previous = notes, now = new Date().toISOString();
+    if (editingId) notes = notes.map(n => n.id === editingId ? {...n,title,content,folder,tags,favorite,updatedAt:now} : n);
+    else notes.push({id:makeId(),title,content,folder,tags,favorite,createdAt:now,updatedAt:now});
+    if (!saveStorage()) { notes = previous; return; } resetForm(); render();
+  });
+  $("cancelButton").addEventListener("click",resetForm);
+  $("askBrainButton").addEventListener("click",askBrain);
+  $("brainQuestion").addEventListener("keydown",event => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") askBrain(); });
+  $("clearBrainButton").addEventListener("click",() => { $("brainQuestion").value = ""; $("brainAnswer").textContent = "Your answer will appear here, based on matching notes in your library."; });
+  $("summarizeButton").addEventListener("click",() => {
+    const id = $("summaryNoteSelect").value, note = notes.find(n => n.id === id);
+    $("summaryAnswer").textContent = note ? `${note.title}\n\n${makeQuickSummary(note.content)}` : "Choose a note first.";
+  });
+  ["searchInput","folderFilter","tagFilter","favoritesOnly"].forEach(id => $(id).addEventListener(id === "searchInput" ? "input" : "change",render));
+  $("exportButton").addEventListener("click",() => {
+    const blob = new Blob([JSON.stringify(notes,null,2)],{type:"application/json"}), url = URL.createObjectURL(blob), link = document.createElement("a");
+    link.href = url; link.download = "nova-knowledge-backup.json"; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
+  });
+  $("importBackupButton").addEventListener("click",() => $("backupFile").click());
+  $("backupFile").addEventListener("change",async event => {
+    const file = event.target.files[0]; if (!file) return;
+    try {
+      const data = JSON.parse(await file.text()); if (!Array.isArray(data)) throw new Error("This backup is not a list of notes.");
+      const valid = data.filter(n => n && typeof n.title === "string" && typeof n.content === "string").map(n => ({
+        id: typeof n.id === "string" ? n.id : makeId(),title:n.title,content:n.content,folder:typeof n.folder === "string" && n.folder.trim() ? n.folder : "Unfiled",
+        tags:Array.isArray(n.tags) ? normalizeTags(n.tags.join(",")) : normalizeTags(n.tags || ""),favorite:Boolean(n.favorite),createdAt:n.createdAt || new Date().toISOString(),updatedAt:n.updatedAt || n.createdAt || new Date().toISOString()
+      }));
+      if (!valid.length && data.length) throw new Error("No valid notes were found in this backup.");
+      if (!confirm(`Restore ${valid.length} note(s)? This will replace the notes currently stored in this browser.`)) return;
+      const previous = notes; notes = valid; if (!saveStorage()) notes = previous; else { resetForm(); render(); alert("Backup restored successfully."); }
+    } catch (error) { alert("Could not restore backup: " + error.message); }
+    finally { event.target.value = ""; }
+  });
+  $("importPdfButton").addEventListener("click",async () => {
+    const file = $("pdfFile").files[0], status = $("pdfStatus"); status.textContent = "";
+    if (!file) { status.textContent = "Choose a PDF file first."; return; }
+    if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") { status.textContent = "Please select a PDF file."; return; }
+    if (!window.pdfjsLib) { status.textContent = "PDF reader library could not load. Connect to the internet, reload this page, and try again."; return; }
+    const button = $("importPdfButton"); button.disabled = true; button.textContent = "Extracting…"; status.textContent = "Reading PDF text. Please keep this page open…";
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      const bytes = new Uint8Array(await file.arrayBuffer()); const pdf = await pdfjsLib.getDocument({data:bytes}).promise;
+      const pages = []; let totalChars = 0;
+      for (let pageNo=1; pageNo<=pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo); const textContent = await page.getTextContent();
+        const text = textContent.items.map(item => item.str || "").join(" ").replace(/[ \t]+/g," ").trim();
+        if (text) pages.push(`--- Page ${pageNo} ---\n${text}`);
+        totalChars += text.length;
+        status.textContent = `Reading page ${pageNo} of ${pdf.numPages}…`;
+      }
+      const content = pages.join("\n\n");
+      if (!content.trim()) { status.textContent = "No selectable text was found. This may be a scanned PDF; OCR is not included in this version."; return; }
+      const title = file.name.replace(/\.pdf$/i,"").slice(0,120) || "Imported PDF";
+      if (addNote({title,content,folder:$("pdfFolder").value.trim() || "PDFs",tags:normalizeTags($("pdfTags").value),favorite:false})) {
+        status.textContent = `Imported “${title}” (${pdf.numPages} pages, ${totalChars.toLocaleString()} text characters). It is now searchable in your library.`;
+        $("pdfFile").value = "";
+      } else status.textContent = "The PDF text was extracted, but browser storage could not save it. Try a smaller PDF.";
+    } catch (error) { console.error(error); status.textContent = "PDF import failed. The file may be damaged, protected, or too large. Try another PDF."; }
+    finally { button.disabled = false; button.textContent = "Extract PDF text and save"; }
+  });
+  render();
+})();
+</script>
+</body>
+</html>
